@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+    image: Test:${TEST_VERSION:-latest}
+    restart: always
+    env_file:
+    - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TEST_HOST: 0.0.0.0
+      TEST_DB_HOST: app-db
+      TEST_DB_PORT: 5432
+      TEST_DB_USER: app
+      TEST_DB_PASS: app
+      TEST_DB_BASE: app
+
+  db:
+    image: postgres:13.6-bullseye
+    hostname: app-db
+    environment:
+      POSTGRES_PASSWORD: "app"
+      POSTGRES_USER: "app"
+      POSTGRES_DB: "app"
+    volumes:
+    - app-db-data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: pg_isready -U app
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  migrator:
+    image: Test:${TEST_VERSION:-latest}
+    restart: "no"
+    command: alembic upgrade head
+    environment:
+      TEST_DB_HOST: app-db
+      TEST_DB_PORT: 5432
+      TEST_DB_USER: app
+      TEST_DB_PASS: app
+      TEST_DB_BASE: app
+    depends_on:
+      db:
+        condition: service_healthy
+
+
+
+volumes:
+  Test-db-data:
+    name: app-db-data
